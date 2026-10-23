@@ -115,6 +115,11 @@ service cloud.firestore {
       allow create, update, delete: if isValidId(adminId) && isAdmin();
     }
 
+    // Connection test document
+    match /test/{docId} {
+      allow get: if isValidId(docId);
+    }
+
     // App configurations (menu, specials, gallery, contacts, booking config, etc.)
     match /appConfig/{configId} {
       allow get, list: if isValidId(configId);

@@ -57,14 +57,37 @@ export function handleFirestoreError(error, operationType, path) {
   throw new Error(JSON.stringify(errInfo));
 }
 
+export const FIRESTORE_DATABASE_ID = firebaseConfig.firestoreDatabaseId;
+export const FIRESTORE_PROJECT_ID = firebaseConfig.projectId;
+
+let isDbConnected = false;
+let dbListeners = [];
+
+export function onDbConnectionChange(listener) {
+  dbListeners.push(listener);
+  listener(isDbConnected);
+  return () => {
+    dbListeners = dbListeners.filter((l) => l !== listener);
+  };
+}
+
 // Validate Connection to Firestore on startup
 export async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
+    isDbConnected = true;
+    dbListeners.forEach((l) => l(true));
+    return true;
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
       console.error('Please check your Firebase configuration.');
+      isDbConnected = false;
+      dbListeners.forEach((l) => l(false));
+      return false;
     }
+    isDbConnected = true;
+    dbListeners.forEach((l) => l(true));
+    return true;
   }
 }
 testConnection();

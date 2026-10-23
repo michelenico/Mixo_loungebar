@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Bell, ChevronLeft, ChevronRight, Lock, LogOut, Pencil, Play, Plus, Save, ShieldCheck, Trash2, Users } from 'lucide-react';
+import { Bell, ChevronLeft, ChevronRight, Cloud, Database, Lock, LogOut, Pencil, Play, Plus, RefreshCw, Save, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { formatWeek, ranking, timeToReset } from '../services/weekly.js';
 import { uid } from '../utils/uid.js';
+import { FIRESTORE_DATABASE_ID, FIRESTORE_PROJECT_ID, saveAppConfig } from '../services/firebase.js';
 
 export function AdminView(props) {
   const { goTo, user, isAdmin, loginWithGoogle, logoutUser, authLoading } = props;
@@ -109,10 +110,10 @@ export function AdminView(props) {
     <div>
       <div className="section" style={{ paddingBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div className="section-title">Pannello di gestione</div>
-        {authError && <div className="section-sub" role="alert">{authError}</div>}
+        {errorMsg && <div className="section-sub" role="alert">{errorMsg}</div>}
         <div style={{ display: 'flex', gap: 6 }}>
           {goTo && <button className="btn btn-outline btn-sm" onClick={() => goTo('home')}><ChevronLeft size={14} /> Sito</button>}
-          <button className="btn btn-outline btn-sm" onClick={logout}><LogOut size={14} /> Esci</button>
+          <button className="btn btn-outline btn-sm" onClick={handleLogout}><LogOut size={14} /> Esci</button>
         </div>
       </div>
       <div className="admin-tabs">
@@ -131,7 +132,7 @@ export function AdminView(props) {
         {tab === 'gioco' && <AdminGame {...props} />}
         {tab === 'classifica' && <AdminWeekly {...props} />}
         {tab === 'coupon' && <AdminCoupons {...props} />}
-        {tab === 'account' && <AdminAccount user={user} isAdmin={isAdmin} logoutUser={logoutUser} />}
+        {tab === 'account' && <AdminAccount {...props} />}
       </div>
     </div>
   );
@@ -569,42 +570,97 @@ function AdminCoupons({ coupons, setCoupons, showToast }) {
   );
 }
 
-function AdminAccount({ user, isAdmin, logoutUser }) {
+function AdminAccount(props) {
+  const { user, isAdmin, logoutUser, menu, gallery, achievement, reviews, events, contact, bookingConfig, gameConfig, weeklyBoard, weeklyWinners, showToast } = props;
+  const [syncing, setSyncing] = useState(false);
+
+  async function syncAllToFirestore() {
+    setSyncing(true);
+    try {
+      await Promise.all([
+        saveAppConfig('menu', menu),
+        saveAppConfig('gallery', gallery),
+        saveAppConfig('achievement', achievement),
+        saveAppConfig('reviews', reviews),
+        saveAppConfig('events', events),
+        saveAppConfig('contact', contact),
+        saveAppConfig('bookingConfig', bookingConfig),
+        saveAppConfig('gameConfig', gameConfig),
+        saveAppConfig('weeklyBoard', weeklyBoard),
+        saveAppConfig('weeklyWinners', weeklyWinners),
+      ]);
+      showToast('Tutti i dati sono stati salvati su Google Cloud Firestore!');
+    } catch (err) {
+      console.error('Error syncing data to Firestore', err);
+      showToast('Errore durante il salvataggio sul database');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
-    <div style={{ maxWidth: 480 }}>
-      <div className="section-title" style={{ fontSize: 16 }}>Sicurezza & Gestione Utente</div>
+    <div style={{ maxWidth: 520 }}>
+      <div className="section-title" style={{ fontSize: 16 }}>Stato Database & Sicurezza</div>
       <div className="section-sub" style={{ marginBottom: 16 }}>
-        Tutte le password statiche sono state rimosse dall'applicazione web. L'accesso è ora protetto tramite Google Cloud OAuth e ruoli crittografici Firestore (RBAC).
+        Questa applicazione è collegata a un database cloud persistente Google Firestore. Tutte le credenziali statiche sono state rimosse e l'accesso è protetto da Google Auth e regole RBAC.
       </div>
 
-      <div className="item-row" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="item-row" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div>
-          <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>Account attivo</span>
-          <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{user?.email || 'N/A'}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>UID: {user?.uid || 'N/A'}</div>
+          <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>Stato Connessione Database</span>
+          <div style={{ fontSize: 14, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, fontWeight: 700 }}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 10px #4ade80' }} />
+            Google Cloud Firestore (Attivo e Connesso)
+          </div>
         </div>
 
         <div>
-          <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>Ruolo assegnato</span>
-          <div style={{ marginTop: 2 }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>ID Database Firestore</span>
+          <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--accent)', background: 'rgba(0,0,0,0.4)', padding: '6px 10px', borderRadius: 8, marginTop: 4, wordBreak: 'break-all' }}>
+            <Database size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+            {FIRESTORE_DATABASE_ID}
+          </div>
+        </div>
+
+        <div>
+          <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>Progetto Google Cloud</span>
+          <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--muted)', background: 'rgba(0,0,0,0.4)', padding: '6px 10px', borderRadius: 8, marginTop: 4 }}>
+            <Cloud size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+            {FIRESTORE_PROJECT_ID}
+          </div>
+        </div>
+
+        <div>
+          <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>Utente Autenticato</span>
+          <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{user?.email || 'N/A'}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>UID: {user?.uid || 'N/A'}</div>
+        </div>
+
+        <div>
+          <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>Ruolo Assegnato</span>
+          <div style={{ marginTop: 4 }}>
             <span className="res-status confermata" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <ShieldCheck size={12} /> {isAdmin ? 'Amministratore (Admin)' : 'Utente Standard'}
             </span>
           </div>
         </div>
-
-        <div>
-          <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>Database in tempo reale</span>
-          <div style={{ fontSize: 13, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }} />
-            Google Cloud Firestore (Connesso)
-          </div>
-        </div>
       </div>
 
-      <button className="btn btn-black" style={{ marginTop: 14 }} onClick={logoutUser}>
-        <LogOut size={14} /> Disconnetti questo account
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
+        <button
+          className="btn btn-outline"
+          onClick={syncAllToFirestore}
+          disabled={syncing}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+        >
+          <RefreshCw size={15} className={syncing ? 'spin' : ''} />
+          {syncing ? 'Salvataggio su Firestore...' : 'Sincronizza tutti i dati su Cloud Firestore'}
+        </button>
+
+        <button className="btn btn-black" onClick={logoutUser}>
+          <LogOut size={14} /> Disconnetti questo account
+        </button>
+      </div>
     </div>
   );
 }
