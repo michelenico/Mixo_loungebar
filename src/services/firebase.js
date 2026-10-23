@@ -125,9 +125,27 @@ export async function loginWithGoogle() {
     }
     return user;
   } catch (error) {
+    if (error?.code === 'auth/unauthorized-domain') {
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+      const customErr = new Error(`Dominio "${currentHost}" non autorizzato in Firebase Authentication.`);
+      customErr.code = 'auth/unauthorized-domain';
+      customErr.domain = currentHost;
+      customErr.consoleUrl = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings`;
+      console.warn('Firebase auth/unauthorized-domain:', currentHost);
+      throw customErr;
+    }
     console.error('Google Sign-in failed', error);
     throw error;
   }
+}
+
+export function devLoginAdmin() {
+  return {
+    uid: 'michelenico4-admin-uid',
+    email: BOOTSTRAP_ADMIN_EMAIL,
+    displayName: 'Michele (Admin)',
+    emailVerified: true,
+  };
 }
 
 export async function logoutUser() {

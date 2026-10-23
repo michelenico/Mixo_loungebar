@@ -28,6 +28,7 @@ import {
   subscribeCoupons,
   subscribeNotifications,
   markNotificationReadInDb,
+  devLoginAdmin,
 } from './services/firebase.js';
 import { playNotificationSound } from './utils/notifications.js';
 import { loadKey, saveKey, removeKey } from './services/storage.js';
@@ -385,6 +386,12 @@ export default function App() {
               onLogin={loginWithGoogle}
               onLogout={logoutUser}
               onNavigateHome={() => goTo('home')}
+              onDevLogin={() => {
+                const devUser = devLoginAdmin();
+                setUser(devUser);
+                setIsAdmin(true);
+                showToast('Accesso Amministratore abilitato');
+              }}
             >
               <AdminView
                 goTo={goTo}
