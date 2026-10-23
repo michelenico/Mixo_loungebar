@@ -1,50 +1,130 @@
 import { useState } from 'react';
-import { Check, ChevronLeft } from 'lucide-react';
+import { Bell, Calendar, Check, ChevronLeft, MessageSquareShare } from 'lucide-react';
 import { uid } from '../utils/uid.js';
 import { DOW, nextDays } from '../utils/dates.js';
+import { createNotificationInDb } from '../services/firebase.js';
+import {
+  playNotificationSound,
+  sendBrowserNotification,
+  requestNotificationPermission,
+  getGoogleCalendarUrl,
+  getWhatsAppBookingUrl,
+} from '../utils/notifications.js';
 
-export function BookingView({ bookingConfig, reservations, setReservations, showToast }) {
+export function BookingView({ bookingConfig, reservations, setReservations, showToast, user, contact }) {
   const days = nextDays(14);
   const [selDate, setSelDate] = useState(null);
   const [selTime, setSelTime] = useState(null);
   const [step, setStep] = useState(1);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(user?.displayName || '');
   const [phone, setPhone] = useState('');
   const [people, setPeople] = useState(2);
   const [done, setDone] = useState(false);
+  const [lastBooking, setLastBooking] = useState(null);
 
   function dateKey(d) { return d.toISOString().slice(0, 10); }
 
   function countForSlot(dateStr, time) {
-    return reservations.filter((r) => r.date === dateStr && r.time === time && r.status !== 'annullata')
-      .reduce((sum, r) => sum + r.people, 0);
+    return reservations.filter((r) => r.date === dateStr && (r.time === time || r.slot === time) && r.status !== 'annullata' && r.status !== 'cancelled')
+      .reduce((sum, r) => sum + (Number(r.people) || Number(r.guests) || 1), 0);
   }
 
   async function confirm() {
+    const formattedDate = dateKey(selDate);
     const r = {
-      id: uid(), name, phone, people,
-      date: dateKey(selDate), time: selTime,
-      status: 'confermata', createdAt: new Date().toISOString(),
+      id: uid(),
+      userId: user?.uid || 'guest',
+      name,
+      phone,
+      email: user?.email || '',
+      people: Number(people),
+      guests: String(people),
+      date: formattedDate,
+      time: selTime,
+      slot: selTime,
+      status: 'confirmed',
+      createdAt: new Date().toISOString(),
     };
+
+    // Save to Firestore reservations
     await setReservations([...reservations, r]);
+
+    // Send real-time notification to database for staff/admin
+    await createNotificationInDb({
+      id: uid(),
+      type: 'new_booking',
+      title: `Nuova prenotazione: ${name}`,
+      message: `${name} (${phone}) ha prenotato per ${people} persone il ${formattedDate} alle ${selTime}.`,
+      reservationId: r.id,
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+
+    // Sound chime and browser notification
+    playNotificationSound();
+    sendBrowserNotification(
+      'Prenotazione Ricevuta!',
+      `Tavolo confermato per ${name} (${people} persone) il ${formattedDate} alle ${selTime}.`
+    );
+
+    setLastBooking(r);
     setDone(true);
-    showToast('Prenotazione confermata!');
+    showToast('Tavolo prenotato e notifica inviata!');
   }
 
-  if (done) {
+  if (done && lastBooking) {
+    const gcalUrl = getGoogleCalendarUrl(lastBooking);
+    const waUrl = getWhatsAppBookingUrl(contact?.phone, lastBooking);
+
     return (
       <div className="panel confirm-box">
         <div className="check-circle"><Check size={30} /></div>
-        <div className="section-title">Prenotazione ricevuta</div>
-        <div className="section-sub">Ti aspettiamo al Mixò Lounge Bar.</div>
-        <div className="recap">
-          <div><span>Nome</span><b>{name}</b></div>
-          <div><span>Data</span><b>{selDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</b></div>
-          <div><span>Orario</span><b>{selTime}</b></div>
-          <div><span>Persone</span><b>{people}</b></div>
+        <div className="section-title">Prenotazione Confermata!</div>
+        <div className="section-sub">Riceverai promemoria e aggiornamenti. Ti aspettiamo al Mixò Lounge Bar!</div>
+
+        <div className="recap" style={{ textAlign: 'left', margin: '16px 0' }}>
+          <div><span>Nome</span><b>{lastBooking.name}</b></div>
+          <div><span>Telefono</span><b>{lastBooking.phone}</b></div>
+          <div><span>Data</span><b>{selDate?.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</b></div>
+          <div><span>Orario</span><b>{lastBooking.time}</b></div>
+          <div><span>Persone</span><b>{lastBooking.people}</b></div>
         </div>
-        <button className="btn btn-black" onClick={() => { setDone(false); setStep(1); setSelDate(null); setSelTime(null); setName(''); setPhone(''); setPeople(2); }}>
-          Nuova prenotazione
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', marginBottom: 16 }}>
+          <a
+            href={gcalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-outline"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none' }}
+          >
+            <Calendar size={16} /> Aggiungi a Google Calendar
+          </a>
+
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-outline"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none', borderColor: '#22c55e', color: '#22c55e' }}
+          >
+            <MessageSquareShare size={16} /> Invia promemoria su WhatsApp
+          </a>
+
+          <button
+            className="btn btn-outline btn-sm"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            onClick={async () => {
+              const ok = await requestNotificationPermission();
+              showToast(ok ? 'Notifiche browser abilitate!' : 'Notifiche non abilitate nel browser');
+            }}
+          >
+            <Bell size={14} /> Abilita notifiche push sul dispositivo
+          </button>
+        </div>
+
+        <button className="btn btn-black btn-block" onClick={() => { setDone(false); setStep(1); setSelDate(null); setSelTime(null); setName(''); setPhone(''); setPeople(2); setLastBooking(null); }}>
+          Fai un'altra prenotazione
         </button>
       </div>
     );

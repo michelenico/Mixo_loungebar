@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role and identity info",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "List of authorized administrator user IDs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "addedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "email"]
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Bar management config sections (menu, gallery, events, etc.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "payload": { "type": "string", "maxLength": 100000 },
+        "updatedBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "payload"]
+    },
+    "Reservation": {
+      "title": "Reservation",
+      "description": "Table booking made by customer or registered user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "phone": { "type": "string", "minLength": 5, "maxLength": 30 },
+        "email": { "type": "string", "maxLength": 256 },
+        "date": { "type": "string", "maxLength": 30 },
+        "slot": { "type": "string", "maxLength": 20 },
+        "guests": { "type": "string", "maxLength": 10 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["confirmed", "cancelled"] },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "phone", "date", "slot", "guests", "status"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "Arcade reward coupon issued to user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "code": { "type": "string", "maxLength": 32 },
+        "score": { "type": "number" },
+        "reward": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["active", "redeemed"] },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "code", "reward", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System or booking notification for staff and admins",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 50 },
+        "title": { "type": "string", "maxLength": 128 },
+        "message": { "type": "string", "maxLength": 500 },
+        "reservationId": { "type": "string", "maxLength": 128 },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "type", "title", "message", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles with roles and public metadata"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Registry of authorized admin user UIDs"
+    },
+    "/appConfig/{configId}": {
+      "schema": "AppConfig",
+      "description": "Central app configurations for menu, events, gallery, and settings"
+    },
+    "/reservations/{reservationId}": {
+      "schema": "Reservation",
+      "description": "Table reservations booked by users or guests"
+    },
+    "/coupons/{couponId}": {
+      "schema": "Coupon",
+      "description": "Reward coupons earned in the game"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Realtime notifications for admin and staff"
+    }
+  }
+}
