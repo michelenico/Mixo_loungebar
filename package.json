@@ -2,16 +2,15 @@
   "name": "mixo-lounge-bar-app",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node server.js",
     "build": "vite build",
-    "preview": "vite preview"
+    "start": "node server.js --production"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
+    "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "lucide-react": "latest"
-  },
-  "devDependencies": {}
+    "vite": "^8.3.5"
+  }
 }

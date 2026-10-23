@@ -6,7 +6,24 @@ Prima versione organizzata in cartelle, senza Firebase.
 
 ```bash
 npm install
+cp .env.example .env
+# Set a new ADMIN_PASSWORD and SESSION_SECRET in .env
 npm run dev
+```
+
+`ADMIN_PASSWORD` must be at least 12 characters; do not reuse the old default
+password, which was present in the previous client bundle. Generate
+`SESSION_SECRET` with `openssl rand -base64 32`. Keep `.env` private; it is
+excluded from Git. Changing either value requires restarting the server. The
+admin password is checked by the Node server and is never included in the
+browser bundle. The admin session uses an HTTP-only cookie and expires after
+eight hours. Production requires HTTPS.
+
+For production, build and run the Node server:
+
+```bash
+npm run build
+npm start
 ```
 
 ## Struttura
